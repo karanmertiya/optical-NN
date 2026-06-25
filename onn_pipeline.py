@@ -48,13 +48,29 @@ def simulate_optical_inference():
     # Forward pass (corrupted by noise)
     noisy_weights = PhaseNoiseMitigator.apply(dummy_weights, noise_variance)
     
+    # Calculate baseline loss (if we didn't mitigate)
+    baseline_loss = torch.nn.functional.mse_loss(noisy_weights, dummy_weights).item()
+    
     # Backward pass (Custom gradients generated)
     loss = noisy_weights.sum()
     loss.backward()
     
+    # Calculate mitigated loss (applying the custom gradient to correct the drift)
+    # The gradient acts as the dynamic negative phase-shift applied to the MZI
+    mitigated_weights = noisy_weights - dummy_weights.grad
+    mitigated_loss = torch.nn.functional.mse_loss(mitigated_weights, dummy_weights).item()
+    
+    # Compute the actual mathematical mitigation efficiency
+    if baseline_loss > 0:
+        mitigation_efficiency = (1 - (mitigated_loss / baseline_loss)) * 100
+    else:
+        mitigation_efficiency = 0.0
+    
     print(f"-> Injected {noise_variance} rad Thermal Phase Noise.")
     print("-> Calculated backward drift derivatives to offset physical heat degradation.")
-    print("-> Phase-Drift Recovery: 92.4% mitigation.")
+    print(f"-> Baseline Phase-Drift MSE: {baseline_loss:.4f}")
+    print(f"-> Mitigated Phase-Drift MSE: {mitigated_loss:.4f}")
+    print(f"-> Phase-Drift Recovery: {mitigation_efficiency:.2f}% empirical mitigation.")
     print("=========================================")
 
 if __name__ == "__main__":
