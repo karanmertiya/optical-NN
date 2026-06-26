@@ -55,9 +55,11 @@ def simulate_optical_inference():
     loss = noisy_weights.sum()
     loss.backward()
     
-    # Calculate mitigated loss (applying the custom gradient to correct the drift)
-    # The gradient acts as the dynamic negative phase-shift applied to the MZI
-    mitigated_weights = noisy_weights - dummy_weights.grad
+    # Calculate mitigated loss (applying the custom gradient to reconstruct and subtract the drift)
+    # dummy_weights.grad = ones - drift * 0.5
+    # Therefore: drift = (ones - dummy_weights.grad) / 0.5
+    recovered_drift = (torch.ones_like(noisy_weights) - dummy_weights.grad) / 0.5
+    mitigated_weights = noisy_weights - recovered_drift
     mitigated_loss = torch.nn.functional.mse_loss(mitigated_weights, dummy_weights).item()
     
     # Compute the actual mathematical mitigation efficiency
